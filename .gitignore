@@ -1,0 +1,15 @@
+venv/
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.env
+.env.*
+*.sgy
+*.segy
+*.hrzdat
+cache/
+*.pkl
+*.npy
+*.npz
+*.inspect.ndjson

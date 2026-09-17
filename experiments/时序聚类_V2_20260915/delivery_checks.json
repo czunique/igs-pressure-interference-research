@@ -1,0 +1,34 @@
+{
+  "report_local_links_resolve": true,
+  "missing_links": [],
+  "main_figures_files": 18,
+  "main_figures_nonempty": true,
+  "per_platform_panels": 28,
+  "visually_checked": [
+    "main scientific figures 01 through 06 PNG",
+    "curve catalogue default browser rendering"
+  ],
+  "browser_controls": [
+    {
+      "test": "default",
+      "expected": 3180,
+      "observed": "匹配 3180 / 3180 条",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "test": "class2",
+      "expected": 598,
+      "observed": "匹配 598 / 3180 条",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "test": "empty",
+      "expected": 0,
+      "observed": "匹配 0 / 3180 条",
+      "passed": true,
+      "returncode": 0
+    }
+  ]
+}

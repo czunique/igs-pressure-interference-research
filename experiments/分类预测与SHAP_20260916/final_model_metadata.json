@@ -1,0 +1,37 @@
+{
+  "candidate": 2,
+  "params": {
+    "n_estimators": 180,
+    "max_depth": 2,
+    "learning_rate": 0.04,
+    "min_child_weight": 5,
+    "subsample": 0.85,
+    "colsample_bytree": 0.85,
+    "reg_lambda": 5
+  },
+  "weighted": false,
+  "features": [
+    "重算井距_段中点平面_m",
+    "段长_m",
+    "簇数",
+    "加砂强度_t_m",
+    "用液强度_m3_m",
+    "排量_m3_min",
+    "孔隙度_pct",
+    "含水饱和度_pct",
+    "总有机碳_pct",
+    "杨氏模量_GPa",
+    "泊松比",
+    "最小主应力_MPa",
+    "水平应力差_MPa",
+    "破裂压力_MPa"
+  ],
+  "classes": [
+    "涨幅微弱型",
+    "快速稳定型",
+    "渐进上升型",
+    "稳定缓升型",
+    "先降后升型"
+  ],
+  "scope": "Retrospective exploratory morphology classification; probabilities uncalibrated; not operational risk prediction"
+}

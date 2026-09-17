@@ -1,0 +1,35 @@
+{
+  "manuscript_pages_reviewed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "figures_reviewed": 12,
+  "workbook_sheets_reviewed": 8,
+  "artifacts": [
+    {
+      "file": "F:\\论文库\\IGS\\实验\\结论\\分类预测与SHAP_20260916\\分类预测与SHAP分析结果.xlsx",
+      "bytes": 331956,
+      "sha256": "deacdd7bd59bbd575c5c88678e3dae9d9b2f424d36af59405f2d2324dd135fe6"
+    },
+    {
+      "file": "F:\\论文库\\IGS\\实验\\结论\\分类预测与SHAP_20260916\\分类预测与SHAP_全部图件.pdf",
+      "bytes": 449071,
+      "sha256": "56e4d0dfed7f48e64f9c54ef0917c5dbc4c06b7a3f41772b84d030239fe43fe4"
+    },
+    {
+      "file": "F:\\论文库\\IGS\\实验\\结论\\IGS中文初稿_20260916\\IGS中文初稿_邻井压力形态与可解释预测.docx",
+      "bytes": 2437406,
+      "sha256": "0b350fd1d83866d3689b4a91020746dce35578d83b9a9abd51fab3d56ad18b79"
+    }
+  ]
+}

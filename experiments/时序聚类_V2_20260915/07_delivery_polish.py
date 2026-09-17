@@ -1,0 +1,12 @@
+from pathlib import Path
+import re
+B=Path('F:/论文库/IGS/实验/过程/时序聚类_V2_20260915');O=Path('F:/论文库/IGS/实验/结论/时序聚类_V2_20260915');p=B/'05_report.py';s=p.read_text(encoding='utf-8-sig');s=s.replace("fig=plt.figure(figsize=(15,9));gs=fig.add_gridspec(4,3,width_ratios=[1.35,2.1,2.3],hspace=.43,wspace=.32)","fig=plt.figure(figsize=(15,12));gs=fig.add_gridspec(4,3,width_ratios=[1.35,2.1,2.3],hspace=.85,wspace=.32)")
+s=s.replace("a.text(0,.75,f'C{cl}","a.text(0,.85,f'C{cl}").replace("a.text(0,.43,f'{len(z):,}","a.text(0,.28,f'{len(z):,}")
+s=s.replace("{r.early_rate_mpa_min_median:.4f} MPa/min","{r.early_rate_mpa_min_median:.3g} MPa/min").replace("{r.tail_rate_mpa_min_median:.4f} MPa/min","{(0 if abs(r.tail_rate_mpa_min_median)<1e-10 else r.tail_rate_mpa_min_median):.3g} MPa/min")
+s=s.replace("$('curve').onchange=draw;filter();","$('curve').onchange=draw;const init=new URLSearchParams(location.hash.slice(1));$('search').value=init.get('q')||'';$('class').value=init.get('class')||'';filter();")
+p.write_text(s,encoding='utf-8');h=O/'全量曲线查询.html';t=h.read_text(encoding='utf-8').replace("$('curve').onchange=draw;filter();","$('curve').onchange=draw;const init=new URLSearchParams(location.hash.slice(1));$('search').value=init.get('q')||'';$('class').value=init.get('class')||'';filter();");h.write_text(t,encoding='utf-8')
+# Rerender only the affected figure, from the edited source block.
+preamble=s.split('def main():')[0];block=s[s.index(' # 2:'):s.index(' # 3 method')];context="d=pd.read_pickle(B/'final_labels.pkl');q=pd.read_csv(O/'11_四类形态特征汇总.csv');proto=pd.read_csv(O/'09_真实典型曲线索引.csv');raw=pd.read_pickle(B/'raw_curves.pkl')\n";exec(preamble+context+'\n'.join(line[1:] if line.startswith(' ') else line for line in block.splitlines()))
+# Add independent checks and explicit weight sensitivity alongside conclusions.
+r=O/'时序聚类_V2_全量结果报告.md';t=r.read_text(encoding='utf-8');t=t.replace('留一平台检验（仅对样本≥20的平台）','**权重敏感性需特别注意：形态权重由60%降至40%时，ARI为0.654；降至50%为0.792，升至70%为0.876。这说明四类边界依赖预设的形态/幅度权衡，不能宣称对特征权重不敏感。**\n\n留一平台检验（仅对样本≥20的平台）');t=t.replace('- [全量标签与质量字段]', '- [所有20个方案的逐曲线标签](14_全部候选方案逐曲线标签.csv)\n- [响应时间适用性审查](15_响应时间适用性审查.csv)：只有201条同时具有日期匹配、稳定基线、至少95%施工覆盖且检测到响应；其他延迟值不能作为已核实真实响应时间。\n- [全量标签与质量字段]');t+='\n## 最终核验\n\n1,764个原始文件的大小与修改时间均未变；抽查20个文件SHA256均一致。独立实现复核12对DTW距离误差为0；抽查24条曲线的幅度与早段斜率误差均小于1e-9。样本ID唯一、类别计数合计3180、特征矩阵与样本对应关系通过核验。详细记录见过程目录validation_checks.json。此为计算与来源完整性检查，不代表每一条原始记录均已经人工审阅。\n';r.write_text(t,encoding='utf-8')
+print('FIGURE_AND_REPORT_UPDATED')

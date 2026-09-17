@@ -1,0 +1,63 @@
+{
+  "seed": 20260915,
+  "mode": "reference-guided phenotype classification plus separate response intensity",
+  "n": 3180,
+  "morphology_names": {
+    "1": "涨幅微弱型",
+    "2": "快速稳定型",
+    "3": "渐进上升型",
+    "4": "稳定缓升型",
+    "5": "先降后升型",
+    "6": "后期加速上升型",
+    "7": "冲高回落型",
+    "8": "降压主导型",
+    "9": "复杂波动或待判型"
+  },
+  "weak_threshold_mpa": 0.2,
+  "weak_peak_limit_mpa": 0.3,
+  "early_middle_late": "equal thirds of observed window",
+  "template_penalty_per_parameter": 0.0006,
+  "template_reject_rmse": 0.3,
+  "intensity_features": [
+    "positive_rise_p95_mpa",
+    "positive_auc_mean_mpa",
+    "positive_auc_mpa_min",
+    "positive_duration_min",
+    "rising_duration_min",
+    "max_segment_rate_mpa_min"
+  ],
+  "intensity_log_scales": [
+    1,
+    1,
+    100,
+    60,
+    60,
+    0.01
+  ],
+  "intensity_p90": [
+    2.09028949928577,
+    1.5204575742252706,
+    2.2407251682846754,
+    1.6486586255873816,
+    1.5288873749739427,
+    2.088863902304467
+  ],
+  "intensity_weights": [
+    0.35,
+    0.2,
+    0.1,
+    0.1,
+    0.05,
+    0.2
+  ],
+  "intensity_centers": [
+    0.05384222905950953,
+    0.49988338700968316,
+    0.9488099514997397
+  ],
+  "intensity_cuts": [
+    0.27686280803459634,
+    0.7243466692547114
+  ],
+  "risk_status": "provisional pressure-response grades; not validated harm or operational thresholds"
+}

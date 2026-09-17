@@ -1,0 +1,165 @@
+from pathlib import Path
+import json,csv
+from docx import Document
+from docx.shared import Inches,Pt,RGBColor
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT,WD_CELL_VERTICAL_ALIGNMENT
+B=Path('F:/论文库/IGS/实验/过程/分类预测与SHAP_20260916');O=Path('F:/论文库/IGS/实验/结论/IGS中文初稿_20260916');F=Path('F:/论文库/IGS/实验/结论/分类预测与SHAP_20260916/图件')
+def readcsv(n):
+    with open(F.parent/n,encoding='utf-8-sig') as f:return list(csv.DictReader(f))
+metrics=readcsv('01_模型总体表现.csv'); byclass=readcsv('06_XGBoost分类别表现.csv')
+doc=Document();sec=doc.sections[0];sec.page_width=Inches(8.5);sec.page_height=Inches(11);sec.top_margin=Inches(.72);sec.bottom_margin=Inches(.72);sec.left_margin=Inches(.85);sec.right_margin=Inches(.85)
+for sty in ['Normal','Body Text','Caption','Title','Subtitle','Heading 1','Heading 2']:
+    st=doc.styles[sty];st.font.name='Times New Roman';st._element.get_or_add_rPr().rFonts.set(qn('w:eastAsia'),'宋体');st.font.color.rgb=RGBColor(0,0,0)
+
+for st in doc.styles:
+    for border in list(st.element.xpath('.//w:pBdr')):border.getparent().remove(border)
+doc.styles['Subtitle'].font.italic=False
+doc.styles['Caption'].font.bold=False
+norm=doc.styles['Normal'];norm.font.size=Pt(11);norm.paragraph_format.line_spacing=1.15;norm.paragraph_format.space_after=Pt(5);norm.paragraph_format.first_line_indent=Pt(22)
+for h,size in [('Title',19),('Heading 1',13),('Heading 2',11.5)]:
+    st=doc.styles[h];st.font.size=Pt(size);st.font.bold=True;st._element.rPr.rFonts.set(qn('w:eastAsia'),'黑体');st.paragraph_format.space_before=Pt(12);st.paragraph_format.space_after=Pt(6);st.paragraph_format.first_line_indent=Pt(0)
+doc.styles['Caption'].font.size=Pt(9);doc.styles['Caption'].paragraph_format.first_line_indent=Pt(0);doc.styles['Caption'].paragraph_format.space_after=Pt(8)
+doc.styles['Subtitle'].font.size=Pt(10);doc.styles['Subtitle'].paragraph_format.first_line_indent=Pt(0)
+footer=sec.footer.paragraphs[0];footer.alignment=WD_ALIGN_PARAGRAPH.CENTER
+run=footer.add_run();fld=OxmlElement('w:fldSimple');fld.set(qn('w:instr'),'PAGE');run._r.addnext(fld)
+header=sec.header.paragraphs[0];header.text='邻井压力响应形态分类与可解释预测';header.style=doc.styles['Caption']
+md=[]
+def p(t):doc.add_paragraph(t);md.append(t+'\n')
+def h(t,level=1):doc.add_heading(t,level=level);md.append('#'*(level+1)+' '+t+'\n')
+def table(title,heads,rows,widths=None):
+    cap=doc.add_paragraph(title,'Caption');cap.paragraph_format.keep_with_next=True
+    t=doc.add_table(rows=1,cols=len(heads));t.alignment=WD_TABLE_ALIGNMENT.CENTER;t.autofit=False
+    for c,s in zip(t.rows[0].cells,heads):c.text=s
+    for row in rows:
+        for c,s in zip(t.add_row().cells,row):c.text=str(s)
+    for i,row in enumerate(t.rows):
+        for j,c in enumerate(row.cells):
+            if widths:c.width=Inches(widths[j])
+            c.vertical_alignment=WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            tcpr=c._tc.get_or_add_tcPr();marg=OxmlElement('w:tcMar')
+            for side in ['top','left','bottom','right']:
+                e=OxmlElement('w:'+side);e.set(qn('w:w'),'65');e.set(qn('w:type'),'dxa');marg.append(e)
+            tcpr.append(marg)
+            for pa in c.paragraphs:
+                pa.paragraph_format.first_line_indent=Pt(0);pa.paragraph_format.space_after=Pt(3);pa.paragraph_format.line_spacing=1.05
+                for r in pa.runs:r.font.size=Pt(9);r.bold=i==0
+            if i==0:
+                sh=OxmlElement('w:shd');sh.set(qn('w:fill'),'E8EDF1');tcpr.append(sh)
+        no=OxmlElement('w:cantSplit');row._tr.get_or_add_trPr().append(no)
+    rep=OxmlElement('w:tblHeader');t.rows[0]._tr.get_or_add_trPr().append(rep)
+    borders=OxmlElement('w:tblBorders')
+    for side in ['top','left','bottom','right','insideH','insideV']:
+        e=OxmlElement('w:'+side);e.set(qn('w:val'),'single');e.set(qn('w:sz'),'4');e.set(qn('w:color'),'C8CED4');borders.append(e)
+    t._tbl.tblPr.append(borders)
+    md.append(title+'\n\n|'+'|'.join(heads)+'|\n|'+'|'.join(['---']*len(heads))+'|\n'+'\n'.join('|'+'|'.join(map(str,r))+'|' for r in rows)+'|\n')
+def fig(n,caption,width=6.7):
+    pa=doc.add_paragraph();pa.paragraph_format.first_line_indent=Pt(0);pa.alignment=WD_ALIGN_PARAGRAPH.CENTER;pa.paragraph_format.keep_with_next=True;pa.add_run().add_picture(str(F/(n+'.png')),width=Inches(width));doc.add_paragraph(caption,'Caption');md.append('!['+caption+']('+str(F/(n+'.png'))+')\n')
+
+title='邻井压力响应形态分类及地质工程参数可解释预测'
+doc.add_paragraph(title,'Title');doc.add_paragraph('IGS中文研究初稿  2026年9月16日','Subtitle');doc.add_paragraph('作者与单位待补充','Subtitle');md.append('# '+title+'\n')
+h('摘要')
+p('针对页岩气平台压裂期间邻井压力曲线形态差异明显、地质工程资料分散及类型预测易受平台相关性影响的问题，建立了压力形态识别、井段参数重算、分组预测和可解释分析相结合的研究流程。对28个来源平台的3180条去重压力曲线提取涨幅、分阶段速率、加速度趋势、持续上涨时间及积分面积，通过自由聚类对照与参考形态约束识别，获得涨幅微弱、快速稳定、渐进上升、稳定缓升和先降后升五种目标形态，同时保留其他形态及待判记录。依据小层解释区间与压裂段测深交集计算地质参数，构建井段—邻井数据集。筛选后采用1016个组合、560个压裂段、23个平台的数据，将跨平台监测关联进一步合并为21个验证组，开展外层5折、内层3折的嵌套分组验证。XGBoost、随机森林和逻辑回归的折外宏平均F1分别为0.275、0.258和0.244；XGBoost的平衡准确率为0.287，快速稳定型召回率为0。折外TreeSHAP结果显示井距、最小主应力和水平应力差在模型中具有较高贡献，但组内关系方向并不完全一致。现阶段结果支持压力形态的定量整理及可解释建模流程，尚不足以支持跨平台高精度预测或确定的压窜损害风险判断。天然裂缝定量提取仅形成单平台阶段性结果，微地震事件验证及前瞻性测试仍需补充。')
+p('关键词：页岩气；邻井压力；形态分类；地质力学；XGBoost；SHAP；分组验证')
+h('1 引言')
+p('多井平台分段压裂过程中，邻井压力监测能够记录井间扰动的时间演化。不同曲线可能表现为小幅波动、较快上涨后趋缓、持续爬升或初降后回升。若仅使用峰值压差，早期快速沟通与较长时间内的缓慢累积可能得到近似评价；若仅按归一化曲线形状分组，又可能忽略压力幅度和持续时间的工程意义。因此，需要同时保留曲线形态与响应强度两个层面的信息。')
+p('天然裂缝和应力条件为井间压力传播提供了可能的地质力学解释。针对含天然裂缝页岩的物理实验表明，天然裂缝产状、应力条件及注入方式能够改变人工裂缝扩展与既有裂缝开启行为[1]。但实验中的裂缝机制不能直接赋予现场的一条压力曲线：井筒储集、停开井状态、施工时序和背景压力恢复也会影响观测形态。本研究据此将“可计算的压力类型”与“需要独立证据支持的压窜风险”分别处理。')
+p('时序分析中，动态时间规整及其平滑形式允许对不同速度的时间演化进行比较[2]，但聚类分离度较高不必然对应具有工程解释力的类型。本项目前期对严格筛选样本进行时序聚类时，得到的主要区分较粗；扩大曲线覆盖后，又出现晚期加速、降压和复杂波动等超出五种参考形态的记录。因此，本文采用自由聚类作为数据结构对照，采用明确的参考形态规则形成可复核标签，避免将预先定义的五类描述为无先验发现的五种机理。')
+p('监督学习方面，XGBoost通过正则化树提升表示非线性关系[3]，SHAP及TreeSHAP可将单个预测的特征贡献汇总到总体和分类型层面[4–5]。然而，同一压裂段往往对应多个邻井记录；若将这些记录随机拆分，模型可能在测试时再次遇到高度相似的地质工程参数。本研究以完整平台及跨平台监测形成的连通组进行验证，重点回答既有五类标签在不同平台间能够被预测到何种程度，以及模型贡献能否支持稳定的因素解释。')
+h('2 数据与分析单元')
+h('2.1 压力曲线及井段资料',2)
+p('压力资料来自项目规范化目录中的各平台邻井监测文件。全量扫描覆盖1764个监测目录文件，1727个文件提取到压力通道，经一致重复合并、身份核查及连续片段整理，形成3180条曲线观测，来源平台共28个。其中文件观察窗1382条，依段号和时钟匹配施工窗口1009条，日期时间匹配施工窗口789条；观察窗定义并不完全一致。原生采样间隔大于120 s的曲线有998条，另有54条以局部连续片段参与形态描述。这些记录均保留质量标识，不把101点插值视为新的独立观测。')
+p('地质工程资料范围较压力样本更大，包括33个平台、3946个压裂段及21155个井段—候选邻井组合。小层解释与井段区间交集重算后，2813段的解释覆盖率达到95%。组合表中的候选邻井仅表示数据组织关系，不能视为已发生井间压窜。3180条压力曲线中，2671条获得可用的井段—邻井身份关联，509条因源井、段号或监测井身份不足等原因未强行匹配。不同曲线记录合并到同一静态组合时，保留其样本编号和标签一致性。')
+h('2.2 五类监督学习样本',2)
+p('组合层面有1630条记录具有一致的目标五类标签。首先排除312条形态边界待复核记录，再排除302条在质控后14项候选输入中有效值少于5项的记录，得到1016条主实验样本。五类数量依次为535、96、208、135和42，分别占52.7%、9.4%、20.5%、13.3%和4.1%。主实验覆盖560个井段和23个平台。由于未观测组合、其他形态、分类冲突和缺失资料较多，本文性能仅针对已知五类且达到输入门槛的样本；不能外推为全部21155个候选组合的识别准确率。')
+fig('01_样本筛选与类别分布','图1  五类建模样本筛选及类别分布。跨平台邻井关联将23个来源平台合并为21个验证组。')
+h('3 研究方法')
+h('3.1 压力指标与形态识别',2)
+p('以观察窗起始5%邻域的压力中位数作为参考压力P₀，计算压差ΔP=P−P₀。正向涨幅采用压差95分位数与零的较大值，变化幅度采用压力95分位数与5分位数之差。整体与前、中、后期速率均通过压力对实际时间的线性回归获得，三个阶段各占观察时长的三分之一。前中期及中后期加速度趋势由相邻阶段速率之差除以阶段时长计算。正向积分累计高于P₀的压差面积，另保留有符号积分及除以观察时长的归一化面积。持续上涨时间、高于起点压力的时间和最长连续上涨时间分别统计，以区分持续平台与持续增长。')
+p('曲线平滑在原生或更粗的时间尺度上进行，再构建101点相对时间表示。形态归一化尺度取变化幅度、0.2 MPa及三倍噪声估计值中的最大值，避免微小波动被过度放大。涨幅微弱型优先按幅度判定；其他类型在分阶段速率、谷值位置、回落比例等约束下拟合直线、早期饱和、S形、初降后升及其他参考家族。通过非负幅度缩放和常数偏移拟合曲线，并对参数数量施加复杂度惩罚。候选拟合过于接近、残差较高或参数敏感的记录保留不确定性标识。')
+table('表1  五种目标形态的主要判定依据',['类型','全量曲线数','主要形态依据'],[['M1 涨幅微弱',971,'变化幅度≤0.2 MPa且正向涨幅≤0.3 MPa'],['M2 快速稳定',214,'早期上升较快，尾期速率相对明显降低'],['M3 渐进上升',384,'中期上升速率高于前期和后期'],['M4 稳定缓升',445,'持续上升且较接近线性增长'],['M5 先降后升',108,'先发生可辨认下降，随后持续回升']],[1.3,.8,4.5])
+p('五类合计2122条曲线。其余记录保留为后期加速631条、冲高回落69条、降压主导267条及复杂波动或待判91条。该处理保证不符合参考图示的真实曲线仍有明确去向。为检查自由聚类与参考分类的关系，在新增压力指标空间比较KMeans的5—9类方案，并报告轮廓系数、分组重采样稳定性及与参考分类的一致性。')
+fig('12_五类实际曲线统一尺度','图2  五类真实代表曲线。横坐标为相对观察时间，纵坐标为统一尺度的起点参考压差；各图来自单条代表记录，不是类平均曲线。')
+h('3.2 地质工程参数重算与质量控制',2)
+p('对每个压裂段，以其顶、底测深界定计算区间，求该区间与各小层解释顶底深度的交集长度。每个参数分别采用有效交集长度加权平均，分母只累计该参数非空且来源可用的覆盖长度；覆盖范围不足的部分不外推。若一个压裂段跨越两层，则两个小层的贡献由在该段内的长度比例决定。例如，泸201H5-1井第3段的计算区间为6195—6266 m，分别覆盖杨氏模量35.8 GPa的小层30.2 m和35.7 GPa的小层40.8 m，段平均杨氏模量为35.743 GPa。')
+p('小层顶底深度与射孔分段目前主要按测深口径匹配；部分原始表未明确标注深度基准，该假设仍需逐平台确认。工程参数优先采用原统计表中有明确井段来源的记录，缺项再由平台施工表补充，保留版本差异和字段冲突。模型阶段将解释覆盖率低于95%、分段冲突涉及的地质量及存在工程取值冲突的对应字段置为空值。零排量、零液量强度等未执行或占位值不作为有效施工输入。阳101H35-1设计表的个别小层出现垂向应力15.4 MPa的异常，故本轮候选特征不采用垂向应力列，原始文件保持不变。')
+p('主模型预先定义14项候选参数：井距、段长、簇数、加砂强度、用液强度、排量、孔隙度、含水饱和度、总有机碳、杨氏模量、泊松比、最小主应力、水平应力差和破裂压力。井距使用源段中点到邻井轨迹的最短平面距离，和原统计表中的平台名义井距不是同一概念；坐标基准仍待最终确认。水平应力差沿用原表最大、最小主应力之差的解释假设。为了减少同源派生参数的重复贡献，不同时引入杨氏模量及其计算得到的剪切模量、体积模量等高度相关变量。井名、平台名、源文件编号、曲线幅度、压力响应等级及类别派生量均不作为模型输入。')
+h('3.3 天然裂缝属性的阶段性表征',2)
+p('已有14个SGY文件分属7个数据组。其中泸201H5示例具备参考层位网格，沿参考层位提取MCANT属性，采用0.2阈值、连通域筛选和骨架细化获得二维解释线；剔除网格外缘40 m范围以减少规则边界伪影。以源段中点及邻井最近点确定井间窗口，计算骨架总长度及其与有效面积之比，后者作为二维线密度P21的代理。局部60 m邻域主方向与假定水力裂缝方向的锐角按线长加权，得到逼近角。水力裂缝方向暂按井眼方位加90°处理。')
+p('本轮仅泸201H5的98个设计井段、294个有方向组合形成定量结果，其中249个组合检出解释线，45个未检出，52个窗口覆盖率不足95%。线长表示地震属性解释骨架的二维总长度，不等于单条天然裂缝的真实三维长度。其他6组数据目前采用全时间范围属性投影叠合井轨迹，只用于空间资料检查。缺少统一目标层位与时深关系时，不将这些投影计算为射孔层位的裂缝密度。由于定量特征缺乏跨平台覆盖，本轮未将其纳入主预测模型；SGY属性解释也不作为已经完成的微地震事件验证。')
+h('3.4 嵌套分组预测与模型比较',2)
+p('每一监督样本对应一个压裂井—压裂段—邻井组合，输出为五类形态。将有跨平台压力监测关联的平台构成连通组，共形成21个验证组。外层采用5折分层分组划分，内层在外层训练集内采用3折分组验证。每折核查训练与测试不共享井或源压裂段。这里的独立性是验证划分意义上的井和平台隔离；同一区域地层背景仍可能相关。既有压力类型字典在前期全量资料上开发，因此本次是给定该字典后的回顾性监督预测评估，不是从类型发现到风险验证的完整外部盲测。')
+p('比较先验概率基线、多项逻辑回归、随机森林及XGBoost。每个训练折内部仅保留非空比例达到35%且存在变化的候选列，随后进行训练折中位数插补和标准化。逻辑回归比较3组正则化与权重设置；随机森林采用240棵树，比较树深及叶节点最少样本数；XGBoost比较180或260轮、深度2或3及是否使用类别权重，学习率固定0.04，行列采样比例均为0.85，L2正则系数为5。类别权重仅使用当前训练折计算。所有候选配置均在内层按宏平均F1选择，外层不参与参数调整。')
+p('除逐算法外层结果外，另记录内层在各模型家族之间选优形成的“内层选择流程”，以减少在外层结果上挑选最好模型造成的乐观解释。主指标为五类宏平均F1，同时报告平衡准确率、准确率、各类精确率与召回率、ROC和PR、对数损失及多类Brier分数。置信区间对21个平台组整体重采样1000次计算，保留组内样本相关性；该区间条件于已拟合的折外预测，尚未包含重新训练、类型字典和上游参数解释误差。概率保持未校准状态，不将其直接作为风险概率。')
+p('特征组对照采用同一固定XGBoost配置，分别比较仅工程参数、仅地质参数、不含井距及全特征；另加入形态边界样本检查标签筛选影响，并按压裂段分组检查同平台迁移场景。对照配置不再针对各子集调参，因此反映所选配置下的信息变化，不能证明某个特征组的普遍最优性。')
+h('3.5 折外SHAP分析',2)
+p('对每个外层XGBoost模型，仅解释其未参与训练的测试样本。TreeSHAP采用tree_path_dependent方式及类别原始得分输出[5–6]；训练树内记录的样本路径提供参考信息，不引入测试标签构造背景。正SHAP表示提高相应类别原始得分，负值表示降低该得分；多分类概率还受其他类别得分共同影响，不能将SHAP数值解释为概率百分点。每条样本均核查基准值与SHAP贡献之和是否还原模型原始得分，最大绝对误差为1.43×10⁻⁶。')
+p('全局重要性首先对各样本和五个类别的绝对SHAP值取平均，并与平台组等权平均结果对照。分类型蜂群图保留贡献方向，原始特征缺失的样本以灰色单独显示。关键变量依赖图显示实际观测值、验证折及分箱中位趋势；未插补的真实观测不足时不讨论阈值。另在至少有15个观测且特征不少于5个不同取值的平台组内，检查特征值与该类SHAP之间的Spearman方向，避免把总体方向直接推广到各平台。')
+h('4 结果')
+h('4.1 形态划分及响应强度差异',2)
+p('在新增指标空间的自由聚类对照中，K=6的轮廓系数最高，为0.283；K=5和K=7分别为0.278和0.280。K=6的分组重采样ARI中位数为0.953，与参考形态分类的ARI为0.442，说明自由聚类形成的分组与预设形态体系并不相同。重采样是在固定全量特征尺度条件下开展，不能视为完整建模过程的不确定性估计。前期严格样本集只有505条，与后续3180条全量曲线的样本及距离口径不同，轮廓系数不宜直接跨轮比较。')
+p('形态与强度存在多对多关系。全部3180条曲线的探索性强度分级得到弱响应1528条、中响应838条、强响应814条。五种目标形态中，涨幅微弱型均为弱响应；快速稳定、渐进上升和稳定缓升型的强响应曲线分别有139、206和249条；先降后升型包含67条弱、33条中和8条强响应。因此“缓升”不能直接解释为弱风险，“先降后升”也不能自动解释为高风险。形态阈值0.1—0.3 MPa敏感性试验及平滑、模板惩罚对照已形成记录，但这些一致性比例不等同于独立标注准确率。')
+h('4.2 跨平台组分类预测',2)
+rows=[]
+for r in metrics:
+    name={'Dummy':'先验基线','Logistic':'逻辑回归','RandomForest':'随机森林','XGBoost':'XGBoost','NestedSelection':'内层选择流程'}[r['model']]
+    rows.append([name,f"{float(r['macro_F1']):.3f}",f"{float(r['F1_CI_low']):.3f}—{float(r['F1_CI_high']):.3f}",f"{float(r['balanced_accuracy']):.3f}",f"{float(r['accuracy']):.3f}"])
+table('表2  主实验的合并折外分类结果',['模型','宏平均F1','F1的95%区间','平衡准确率','准确率'],rows,[1.5,.9,1.5,1.3,1.0])
+p('XGBoost的宏平均F1最高，为0.275，95%分组重采样区间为0.163—0.320；随机森林和逻辑回归分别为0.258和0.244。区间较宽且重叠，不支持声称XGBoost显著优于其他模型。内层选择流程的宏平均F1为0.241，表明选择最佳模型家族本身也存在跨组不稳定性。先验基线仅预测多数形态便获得0.527准确率，高于XGBoost的0.463，但其平衡准确率为0.200，宏平均F1仅0.138。类别不均衡条件下，仅报告准确率会掩盖少数类识别不足。')
+fig('03_模型比较','图3  嵌套分组验证的模型比较。误差线为平台组整体重采样区间；内层选择流程在每个外层训练集内完成模型家族选择。')
+table('表3  XGBoost各类折外表现',['类型','样本数','精确率','召回率','F1','AUROC'],[[r['class'],r['n'],f"{float(r['precision']):.3f}",f"{float(r['recall']):.3f}",f"{float(r['F1']):.3f}",f"{float(r['AUROC']):.3f}"] for r in byclass],[1.5,.7,1.0,1.0,1.0,1.0])
+p('微弱型与渐进上升型的召回率分别为0.617和0.524，稳定缓升型为0.200，先降后升型为0.095。快速稳定型召回率为0，即在当前五类最大概率决策下未获得任何正确预测。该类一对其余类别AUROC为0.631，并不意味着已有可用的五分类识别能力；排序能力与最终分类决策须分别判断。XGBoost整体宏平均AUROC为0.621，对数损失为1.336，多类Brier分数为0.649。概率可靠性图与逐组结果见配套图册，当前输出未作校准。')
+fig('04_XGBoost折外混淆矩阵','图4  XGBoost折外混淆矩阵。左为计数，右为按真实类型归一化；M2的零召回说明现有输入尚不足以稳定区分该形态。')
+h('4.3 特征组与标签筛选的对照结果',2)
+p('固定XGBoost配置下，全特征跨平台组宏平均F1为0.252，仅工程参数为0.274，仅地质参数为0.222，不含井距为0.242。全特征并未稳定优于仅工程参数，说明当前地质解释覆盖、平台分布和参数冗余仍会影响模型利用信息的方式；不能由SHAP排行较高反推某类参数已经带来可靠的泛化增益。加入形态边界后，共1255个组合参与对照，宏平均F1为0.250，与严格标签全特征配置接近。')
+p('按压裂段分组时，固定配置的宏平均F1提高到0.366，而跨平台组为0.252。两者对应不同应用问题：前者允许在训练中见到同平台其他井段，后者检验对未参与训练的平台组的迁移。该差异提示平台背景与资料模式是重要影响因素。即使同平台迁移指标有所提高，五类性能仍有限，不宜据此形成现场自动风险决策。')
+h('4.4 SHAP贡献及其解释边界',2)
+p('XGBoost折外解释中，井距、最小主应力和水平应力差的平均绝对SHAP分别约为0.241、0.184和0.166，位于前三位；加砂强度约为0.115，随后为破裂压力和孔隙度。采用平台组等权平均后，前三位保持不变。该排序说明模型较多利用几何位置和应力相关信息，但不能独立证明这些变量是压窜损害的主控因素。')
+fig('07_SHAP全局与分类别重要性','图5  XGBoost折外SHAP重要性。左图比较样本等权与平台组等权贡献，右图保留五类贡献差异。SHAP单位为类别原始得分。')
+p('井距增大总体对应快速稳定型得分贡献降低，在645个井距有效观测上，其特征值与该类SHAP的总体Spearman系数为−0.829；但7个满足组内支持门槛的分组中，组内系数范围为−0.812至0.109。更重要的是该类召回率为0，因此这一趋势只能作为模型行为线索。较大的最小主应力与水平应力差总体对应微弱型得分贡献增加，总体系数分别为0.894和0.831，但组内方向范围分别为−0.715至0.945和−0.453至0.881。总体关联不能替代同一地质背景下的对照证据。')
+p('加砂强度与微弱型得分贡献在当前模型中总体正相关；10个满足组内门槛的分组相关系数均为正，范围0.489—0.911。这个方向并不意味着增加加砂能够降低压窜风险。加砂强度来自历史实际施工记录，可能受到地层选择、分段设计和施工调整的共同影响，且解释对象是形态原始得分而非损害结果。后续应在计划施工参数、相近井距和地层条件下进行独立检验。')
+fig('09_SHAP关键变量依赖图','图6  四个主要变量的折外SHAP依赖关系。颜色表示验证折，黑线为有样本支持的分箱中位趋势；缺失值不用于横轴关系分析。曲线转折不作为工程阈值。')
+h('5 讨论')
+h('5.1 从压力形态到风险标签的证据要求',2)
+p('本文建立的五类首先是压力演化的描述性标签。曲线早期迅速上涨后趋缓，可以与较快压力传递相联系；初降后升也可能包含背景压力衰减叠加新增扰动。但“人工裂缝直接沟通”“天然裂缝剪切激活”或“孔隙传压”等机制需要额外证据，不能通过曲线名称单独确认。强、中、弱响应分数也由当前数据的涨幅、速率和累积指标构造，尚未用实际窜液、停产损失或独立监测事件标定。论文当前的风险意义在于提供可审查的候选响应类型和后续验证入口。')
+p('天然裂缝结果需要特别区分数据类型。参考层位上的地震属性骨架可以为裂缝发育的空间解释提供候选量，但其分辨率、阈值和解释支持范围与地下真实裂缝不同。其他数据组的全时间投影更不能与具体射孔段的压窜类型逐一验证。后续应在统一坐标和时间基准下，利用有定位质量信息的微地震事件计算事件云到邻井的距离、靠近时序及空间展布，再与压力响应及实际井间窜液资料对照。本研究尚未完成该独立验证。')
+h('5.2 预测性能有限的可能来源',2)
+p('五类在地质工程空间中可能并非充分可分。相近施工强度和地质条件下，邻井生产历史、井筒状态、裂缝网络及施工先后顺序不同，都可能改变压力曲线。当前模型仅包含源段属性与部分几何信息，邻井侧参数、应力方位、孔隙压力、耗竭状态和层间隔挡等信息仍不足。井距虽然贡献较高，但其有效比例仅约63.5%，而主应力数据还受到小层平均化和资料版本差异影响。')
+p('观测与选择过程也影响结果。现有标签在全量数据上开发，且缺少统一施工前基线和完整观察窗；短记录可能尚未进入平台段，导致相近过程被划为不同形态。五类监督样本仅覆盖目标形态中身份和输入较清晰的一部分，微弱型占比超过一半，先降后升型仅42个组合。未来增加样本时应优先增加独立平台、井对和高质量少数类事件，不能仅增加同一井段的相似监测记录。')
+p('当前输入包含实际加砂、液量及排量，这些值可能在施工中根据压力情况调整，预测时间点必须明确。本轮模型属于历史参数与事后形态之间的回顾性关系模型。若论文要主张施工前预测，应建立计划值版本，并验证每项参数在开工前已可获得；若转为施工中预测，则应设置固定预测时刻，剔除该时刻之后的信息。分组交叉验证虽控制井和平台交叉，不能消除时间上的结果影响输入。')
+h('5.3 地质力学参数扩展及下一步验证',2)
+p('下一阶段优先补齐源井和邻井两侧的最小水平主应力、孔隙压力、应力方位与层位高差，以区分总应力、有效应力和几何接近程度。在密度与垂深可靠时，可独立估算上覆应力并核查原解释；在Biot系数和孔隙压力可用时，可构造有效最小应力。对于天然裂缝，应先确认SGY归属、目标层位及时深转换，再以实际最大水平主应力方位替代井眼正交假设，补充裂缝方位离散度、局部P21及井间窗口覆盖情况。')
+p('对已有杨氏模量和泊松比，可按明确弹性假设构造平面应变模量或剪切模量，并以参数替换试验评价是否增加有效信息；不应将大量代数相关变量同时投入模型后按SHAP细小排序差异解释机制。隔层厚度、应力差及源段与邻井的层位关系可形成更有针对性的屏障指标，但必须保留输入来源和空间支持尺度。当前没有独立证据支持具体排量、加砂或段长优化值，本文不据此提出定量防窜施工处方。')
+h('6 结论')
+p('（1）完成28个来源平台3180条压力曲线的全量整理，采用参考形态约束形成五种目标形态，并保留1058条其他形态及待判记录。自由聚类与参考类型的一致性有限，五类应被描述为可复核的形态体系，而非无先验发现的五种压窜机制。')
+p('（2）形成小层解释与压裂段测深交集加权的参数计算流程，经标签和输入质控后，以1016个井段—邻井组合开展嵌套分组预测。XGBoost的跨平台组宏平均F1为0.275，快速稳定型召回率为0，说明当前资料尚不能支撑稳定的五类现场预测。')
+p('（3）折外SHAP将井距、最小主应力和水平应力差列为较高贡献变量，但应力关联在部分平台组内方向不同，地质参数组也未显示稳定增益。现阶段可提出待验证的因素假设，不能据此认定压窜风险主控机制。')
+p('（4）天然裂缝定量表征仅在泸201H5形成阶段性结果，尚缺跨平台统一层位和微地震事件验证。补齐计划施工输入、邻井状态、有效应力及裂缝空间证据，并开展冻结类型字典后的独立平台测试，是将本研究推进为风险预测方法的必要步骤。')
+h('数据与可复现性')
+p('本研究保留原始文件，保存曲线身份关联、字段来源、参数缺失与冲突标识、模型输入、外层分组、内层搜索结果、逐样本折外概率及SHAP结果。模型实现使用Python 3.12.14、scikit-learn 1.9.1、XGBoost 3.4.1和SHAP 0.52.0。图件采用统一色系和字号，并提供600 dpi PNG及PDF、SVG矢量版本。数据公开范围及现场资料授权需由资料权属方确认；本文未假定数据可公开获取。')
+h('参考文献')
+refs=[
+'[1] CHENG W, JIN Y, CHEN M. Experimental study of step-displacement hydraulic fracturing on naturally fractured shale outcrops[J]. Journal of Geophysics and Engineering, 2015, 12(4): 714–723. https://doi.org/10.1088/1742-2132/12/4/714.',
+'[2] CUTURI M, BLONDEL M. Soft-DTW: a differentiable loss function for time-series[C]//Proceedings of the 34th International Conference on Machine Learning. PMLR, 2017, 70: 894–903. https://proceedings.mlr.press/v70/cuturi17a.html.',
+'[3] CHEN T, GUESTRIN C. XGBoost: a scalable tree boosting system[C]//Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining. 2016: 785–794. https://doi.org/10.1145/2939672.2939785.',
+'[4] LUNDBERG S M, LEE S I. A unified approach to interpreting model predictions[C]//Advances in Neural Information Processing Systems. 2017, 30. https://proceedings.neurips.cc/paper_files/paper/2017/hash/8a20a8621978632d76c43dfd28b67767-Abstract.html.',
+'[5] LUNDBERG S M, ERION G, CHEN H, et al. From local explanations to global understanding with explainable AI for trees[J]. Nature Machine Intelligence, 2020, 2: 56–67. https://doi.org/10.1038/s42256-019-0138-9.',
+'[6] SHAP. shap.TreeExplainer[EB/OL]. https://shap.readthedocs.io/en/latest/generated/shap.TreeExplainer.html. Accessed 2026-09-16.',
+'[7] SCIKIT-LEARN. Cross-validation: evaluating estimator performance[EB/OL]. https://scikit-learn.org/stable/modules/cross_validation.html. Accessed 2026-09-16.'
+]
+for t in refs:
+    pa=doc.add_paragraph(t);pa.paragraph_format.first_line_indent=Pt(0);pa.paragraph_format.line_spacing=1.05;pa.paragraph_format.space_after=Pt(6)
+    for r in pa.runs:r.font.size=Pt(9)
+    md.append(t+'\n')
+# Add explicit use of CV source at method paragraph, without claiming preregistration.
+for pa in doc.paragraphs:
+    if pa.text.startswith('每一监督样本对应'):pa.text=pa.text.replace('外层采用5折分层分组划分','依据分组验证原则[7]，外层采用5折分层分组划分')
+doc.core_properties.title=title;doc.core_properties.subject='IGS中文初稿及回顾性模型结果';doc.core_properties.author='';doc.core_properties.keywords='邻井压力;形态分类;XGBoost;SHAP'
+# Explicit repeat table widths and prevent orphan headings.
+for pa in doc.paragraphs:
+    pa.paragraph_format.widow_control=True
+out=O/'IGS中文初稿_邻井压力形态与可解释预测.docx';doc.save(out)
+(B/'IGS中文初稿_内容.md').write_text('\n'.join(md),encoding='utf8')
+print(out);print('paragraphs',len(doc.paragraphs),'tables',len(doc.tables),'figures',len(doc.inline_shapes))
